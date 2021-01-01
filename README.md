@@ -1,1 +1,1 @@
-"# ChessPlayer"
+# ChessPlayer
