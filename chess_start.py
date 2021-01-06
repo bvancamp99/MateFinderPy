@@ -3,6 +3,7 @@
 # Files: chess_game.py, chess_start.py, chess_player.py
 
 import numpy as np
+import threading
 
 import chess_game
 import chess_player
@@ -22,6 +23,9 @@ def main(template=None):
     
     ai_color = 'b' if user_color == 'w' else 'w'
     ai = chess_player.ChessPlayer(board, ai_color)
+    
+    minimax_thread = threading.Thread(target=ai.get_move, args=())
+    minimax_thread.start()
     
     cur_color = 'w'
     cur_turn = 1
@@ -84,7 +88,14 @@ def main(template=None):
         else:
             print('AI\'s turn...')
             
-            m = ai.get_move(cur_turn, last_move=last_move)
+            if not minimax_thread.is_alive():
+                minimax_thread = threading.Thread(target=ai.get_move, args=(cur_turn, last_move))
+                minimax_thread.start()
+            
+            minimax_thread.join()
+            
+            print(len(ai.scores))
+            m, score = ai.scores[chess_player.get_hashable_board(board.get_copy())][last_move]
             last_move = None
             if m in moves:
                 board.make_move(*m)
