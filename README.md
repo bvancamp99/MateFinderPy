@@ -21,7 +21,6 @@ AI vs AI game mode (easier to test)
 Organisation:
 Revisit ICON_SET (needed or just assume char is fine in chessGame line ~106?)
 Split up chessGame into multiple files
-Tab = 4 spaces -> tab = 2 spaces
 GetChessPosition and isCastleEligible are unused, remove?
 Change implementation of ChessBoard to not require board parameter?
 - It should just be the object itself, you can create board copies for hypothetical board states and call their methods
