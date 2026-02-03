@@ -14,21 +14,11 @@ Dynamic piece values
 - Could be as simple as how many unobstructed moves they can make or pieces they can take or smth
 
 Visual:
-✅ Chess piece icons instead of letters
 Correct chess notation
 AI vs AI game mode (easier to test)
 
 
 Organisation:
-✅ snake_case to camelCase (including filenames)
-✅ Variable renaming for clarity
-✅ const.py file with project constant variables
-✅ Changed colours from 'b' or 'w' to constant integers
-✅ Changed piece types from strings to constant integers
-✅ Piece icons now in a 2d tuple, indexed via constant variables colour and piece
-✅ ChessPiece.pieceType
-✅ Init methods in each child class to define pieceType and one str method in ChessPiece parent class
-✅ Remove get_allyc, opponent_c, and string<->icon data structures after icon access rework
 Revisit ICON_SET (needed or just assume char is fine in chessGame line ~106?)
 Split up chessGame into multiple files
 Tab = 4 spaces -> tab = 2 spaces
