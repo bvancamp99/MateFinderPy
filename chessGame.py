@@ -55,22 +55,22 @@ def isPiece(x, colour=None, pieceType=None):
     )
 
 
-def onBoard(chessCol, chessRow):
+def onBoard(chessFile, chessRank):
     '''
-    Returns if the column and row fit in an 8x8 board.
+    Returns if the file and rank fit in an 8x8 board.
 
     Valid params range from ('A', 1) to ('H', 8)
     '''
-    return ord('A') <= ord(chessCol) <= ord('H') and 1 <= chessRow <= 8
+    return ord('A') <= ord(chessFile) <= ord('H') and 1 <= chessRank <= 8
 
 
-def colSum(chessCol, j):
+def colSum(chessFile, j):
     '''
-    Simplifies adding to a chess column.
+    Simplifies adding to a chess file.
 
     e.g. returns 'B' for input ('A', 1)
     '''
-    return chr(ord(chessCol) + j)
+    return chr(ord(chessFile) + j)
 
 
 class ChessBoard:
@@ -97,6 +97,16 @@ class ChessBoard:
             ICONS[PAWN][WHITE]: Pawn(WHITE, None, self)
         }
 
+        # uses same indexing format as const.ICONS
+        self._pieces = (
+            ({}, {}),
+            ({}, {}),
+            ({}, {}),
+            ({}, {}),
+            ({}, {}),
+            ({}, {})
+        )
+
         self._board = np.array([[None] * 8 for _ in range(8)])
         for i in range(8):
             for j in range(8):
@@ -105,46 +115,47 @@ class ChessBoard:
                     self._board[i,j] = c
                 elif c in ICON_SET:
                     curPiece = copy.copy(self.iconToObject[c])
-                    curPiece.position = (self.getChessCol(j), self.getChessRow(i))
+                    curPiece.position = self.getChessPosition(i, j)
                     self._board[i,j] = curPiece
+                    self._pieces[curPiece.pieceType][curPiece.colour].add(curPiece)
                 else:
                     raise Exception('Non-valid piece char', c)
 
-    def getChessRow(self, i):
+    def getChessRank(self, i):
         return 8 - i if self._userColour == WHITE else i + 1
 
-    def getChessCol(self, j):
+    def getChessFile(self, j):
         return colSum('A', j) if self._userColour == WHITE else colSum('H', -j)
 
-    # TODO: unused?
     def getChessPosition(self, i, j):
         '''
-        Returns a string representing the chess position given the board indices.
+        Returns tuple of chess file and rank given board array indexing with 
+        row i and column j.
 
-        e.g. returns 'D6' for input (2,3) when user colour is white
+        e.g. returns ('D', '6') for input (2, 3) when user colour is white
         '''
-        return (self.getChessCol(j), self.getChessRow(i))
+        return (self.getChessFile(j), self.getChessRank(i))
 
-    def getArrayRow(self, chessRow):
-        return 8 - chessRow if self._userColour == WHITE else chessRow - 1
+    def getArrayRow(self, chessRank):
+        return 8 - chessRank if self._userColour == WHITE else chessRank - 1
 
-    def getArrayCol(self, chessCol):
-        return ord(chessCol) - ord('A') if self._userColour == WHITE else ord('H') - ord(chessCol)
+    def getArrayCol(self, chessFile):
+        return ord(chessFile) - ord('A') if self._userColour == WHITE else ord('H') - ord(chessFile)
 
-    def getArrayIndexing(self, chessCol, chessRow):
+    def getArrayIndexing(self, chessFile, chessRank):
         '''
         Returns a tuple representing the indices of the back-end board
         corresponding with the chess_pos.
 
         e.g. returns (2,3) for input 'D', 6 when user colour is white
         '''
-        return (self.getArrayRow(chessRow), self.getArrayCol(chessCol))
+        return (self.getArrayRow(chessRank), self.getArrayCol(chessFile))
 
-    def getPiece(self, chessCol, chessRow, board=None):
+    def getPiece(self, chessFile, chessRank, board=None):
         if board is None:
             board = self._board
 
-        return board[self.getArrayIndexing(chessCol, chessRow)]
+        return board[self.getArrayIndexing(chessFile, chessRank)]
 
     def _yieldVerticalBetween(self, x, y):
         xCol, xRow = x

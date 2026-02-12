@@ -32,7 +32,7 @@ def getPieceValue(pieceType):
     return pieceValues[pieceType]
 
 
-def get_maxDepth(n):
+def getMaxDepth(n):
     '''
     Return the maximum depth for the current recursion given the number of
     moves n.
@@ -67,7 +67,7 @@ class ChessPlayer:
         enPassantPositions = list(self.board.yieldEnPassantPositions(self.colour, lastMove, board=curBoard))
         castlePositions = list(self.board.yieldCastlePositions(self.colour, board=curBoard))
         n = len(moves) + len(enPassantPositions) + len(castlePositions)
-        maxDepth = get_maxDepth(n)
+        maxDepth = getMaxDepth(n)
         for m in random.sample(moves + enPassantPositions + castlePositions, k=n):
             futureBoard = self.board.getCopy(board=curBoard)
             if m in enPassantPositions:
@@ -145,7 +145,7 @@ class ChessPlayer:
         a = -math.inf
 
         n = len(moves) + len(enPassantPositions) + len(castlePositions)
-        maxDepth = get_maxDepth(n)
+        maxDepth = getMaxDepth(n)
         for m in random.sample(moves + enPassantPositions + castlePositions, k=n):
             futureBoard = self.board.getCopy(board=curBoard)
             if m in enPassantPositions:
@@ -185,7 +185,7 @@ class ChessPlayer:
         b = math.inf
 
         n = len(moves) + len(enPassantPositions) + len(castlePositions)
-        maxDepth = get_maxDepth(n)
+        maxDepth = getMaxDepth(n)
         for m in random.sample(moves + enPassantPositions + castlePositions, k=n):
             futureBoard = self.board.getCopy(board=curBoard)
             if m in enPassantPositions:

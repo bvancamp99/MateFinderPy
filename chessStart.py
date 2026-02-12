@@ -3,6 +3,7 @@
 # File: chessStart.py
 # Description:
 
+
 import numpy as np
 import random
 
