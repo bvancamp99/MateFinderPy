@@ -136,7 +136,7 @@ class ChessPlayer:
 
         if self.board.isPawnPromotionEligible(lastMove, board=curBoard):
             _, x = lastMove
-            self.board.promotePawn(x, s=self.choosePawnPromotion(curBoard=curBoard), board=curBoard)
+            self.board.promotePawn(x, pieceType=self.choosePawnPromotion(curBoard=curBoard), board=curBoard)
 
         moves = list(self.board.yieldMoves(colour=self.colour, board=curBoard))
         enPassantPositions = list(self.board.yieldEnPassantPositions(self.colour, lastMove, board=curBoard))
@@ -176,7 +176,7 @@ class ChessPlayer:
 
         if self.board.isPawnPromotionEligible(lastMove, board=curBoard):
             _, x = lastMove
-            self.board.promotePawn(x, s=self.choosePawnPromotion(curBoard=curBoard), board=curBoard)
+            self.board.promotePawn(x, pieceType=self.choosePawnPromotion(curBoard=curBoard), board=curBoard)
 
         moves = list(self.board.yieldMoves(colour=self.getOpponentColour(), board=curBoard))
         enPassantPositions = list(self.board.yieldEnPassantPositions(self.getOpponentColour(), lastMove, board=curBoard))

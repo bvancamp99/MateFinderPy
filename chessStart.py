@@ -82,11 +82,12 @@ def main(template=None):
                 print('Pawn promotion!', end=' ')
 
                 promotion = None
-                while promotion not in chessGame.pawn_promotion_choices:
-                    promotion = input('Choose your piece type (queen, rook, bishop, or knight): ')
+                while promotion not in {str(QUEEN), str(ROOK), str(BISHOP), str(KNIGHT)}:
+                    promotion = input('Choose your piece type (1: queen, 2: rook, 3: bishop, 4: knight): ')
 
+                promotion = int(promotion)
                 _, x = lastMove
-                board.promotePawn(x, s=promotion)
+                board.promotePawn(x, pieceType=promotion)
         else:
             print('AI\'s turn...')
 
@@ -109,12 +110,12 @@ def main(template=None):
                 print('Pawn promotion!', end=' ')
 
                 promotion = ai.choosePawnPromotion()
-                if promotion not in chessGame.pawn_promotion_choices:
+                if promotion not in {QUEEN, ROOK, BISHOP, KNIGHT}:
                     raise Exception('AI cannot choose {} for promotion piece type'.format(promotion))
 
                 print('AI chooses', promotion)
                 _, x = lastMove
-                board.promotePawn(x, s=promotion)
+                board.promotePawn(x, pieceType=promotion)
 
         curColour = BLACK if curColour == WHITE else WHITE
         curTurn += 1
