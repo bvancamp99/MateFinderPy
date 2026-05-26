@@ -105,14 +105,14 @@ def main(template=None):
                 m = board.castle(*m)
                 print('AI castles')
             else:
-                raise Exception('AI chose illegal move {}'.format(m))
+                raise Exception(f'AI chose illegal move {m}')
 
             if board.isPawnPromotionEligible(lastMove):
                 print('Pawn promotion!', end=' ')
 
                 promotion = ai.choosePawnPromotion()
                 if promotion not in {QUEEN, ROOK, BISHOP, KNIGHT}:
-                    raise Exception('AI cannot choose {} for promotion piece type'.format(promotion))
+                    raise Exception(f'AI cannot choose {promotion} for promotion piece type')
 
                 print('AI chooses', promotion)
                 _, x = lastMove

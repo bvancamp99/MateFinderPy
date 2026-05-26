@@ -1,82 +1,196 @@
 # ChessPlayer
 
 
-## TODO: working on chess_board
-LINE 139 FIX pieceTYPE= not s=
+## TODO bishop pseudo legal refactor like did with rook, iter_between use for disambiguating, iter_squares_between use iter_between, zip for diagonal
+- https://www.reddit.com/r/chessbeginners/comments/1pg20ma/comment/nspm0qy/ also check wikipedia disambiguating moves queen example Qff1
+- use coordinates implementation of iter squares between for rook and bishop movement
+- Use is_piece_between to verify if piece could move to on-same-path square
+- Is it still an ambiguous piece if its move would put its king in check?
+    - it appears not
+- iter pseudo legal moves then if end square matches, verify that own king would not be in check before including?
+
+- Lighter version of make_move for would_put_king_in_check method?
+    - Only update _arr and stuff necessary to check if king under attack
+- iter_castle_moves need to check without moved variables, use fen
+- Rename Move pawn_promo to promotion_letter
+- engine self.board field, also maybe don't need color as search param anymore?
+- Don't need PieceType enum, use type object instead
+- pawn_promo is letter instead of PieceType enum
+- Issue with fen_class position arr needing a letter but promoting pawn needs piece type.
+- piece.letter field (board.py line 132)
+    - can just send that in constructor
+    - can use for piece squares add and remove as well?
+- No moved or prev_moved variable needed
+    - Rook or king having moved is covered by FEN castling rights field
+    - Pawn has moved if and only if it's not on the starting rank (2 for white, 7 for black)
+- Might not need move instance to store resulting FEN, since fen_class will update that after every move.
+- Get algebraic notation except check or checkmate initially for move, then in make_move add check or checkmate symbol so that we don't have to make then reverse move in Move constructor?
+    - Or maybe just don't get algebraic notation at all in constructor, just call in make_move and set Move's class variable.
+        - Then we would need to get algebraic notation ahead of time in start.py when showing the user the moves they can make.
+- iter_moves and similar should use active color instead of color parameter
+    - board.move_it class variable that's updated after each move
+- *square in pieces.py
+- get_pîeces method?
+- rename a_square etc in iter_en_passant
+- has_piece method?
+- Remove tgt_piece as parameter and use board param to get it as class var?
+    - if move type is en passant, make sure to get the defending pawn square instead of end square
+- Refactor sending unpacked squares everywhere, have get_piece take a regular, packed tuple
+- Algebraic notation and integrating it and FEN into start and board
+- remove_piece, to reverse pawn promotion need move instance to store piece that moved
+- Remove checking for pawn promotion trigger in start and engine once make_move and reverse_move do it automatically
+
+Bugs:
+✅ Fixed Pawn.is_being_attacked returned False if it wasn't the last piece to move
+✅ Fixed potential bug in chessGame.py line 223: for x in self.yieldPositionsBetween(x, y) uses same name as param for local var
+✅ Fixed king was allowed to castle through check
+Reverse move doesn't account for pawn promotion, so it would move post-promotion piece back
+- store in move instance if the move triggers pawn promotion?
+- TODO: promote pawn in make_move and revert in reverse_move
+Pawn promotion done after checking heuristic and game result
+https://www.chess.com/article/view/how-chess-games-can-end-8-ways-explained
+- insufficient material not just king vs king
+- TODO: timeout vs insufficient material to be implemented when time limits are implemented
+CHECK: Can pawn move 2 spaces with this example FEN "4k3/8/8/8/8/8/4P3/4K3 w - - 5 39"?
+- It should be marked as moved if not on starting rank
+Engine crashes with FEN string
+- Piece to move is None: "r1bqr3/ppp1B1kp/1b4p1/n2B4/3PQ1P1/2P5/P4P2/RN4K1 w - - 1 0"
+- Castle search: "4k2r/6r1/8/8/8/8/3R4/R3K3 w Qk - 0 1"
+- Castle search: "r1bk3r/p2pBpNp/n4n2/1p1NP2P/6P1/3P4/P1P1K3/q5b1 b q - 0 1"
+- get_king returns None: "r1bk2r1/p2pBpNp/n4n2/1p1NP2P/6P1/3P4/P1P1K3/q5b1 b q - 0 1"
+- square_to_index missing rank arg: "2r1r3/p3P1k1/1p1pR1Pp/n2q1P2/8/2p4P/P4Q2/1B3RK1 w - - 1 0"
+
 
 Performance:
-Is it possible to not need to copy board state?
-- Reverse move after recursion call in minimax to restore current board state?
-- Single set of piece positions that also is not copied but instead reverse updated after minimax call?
-- King position list would also need to be reverse updated
-- Would need a reverse_move method in ChessBoard class, think about parameters required
-Optimise ChessBoard.getKing and ChessBoard.yieldPieces
-- store positions instead of piece objects!
-getKing optimise (currently O(N^2)), store black and white king location in board state
-Optimise yieldPieces, store in a data structure for each board?
-- would also optimise getKing
-- would have to replace piece objects from data structure every time a movement on the board is made
-Alternative for arePiecesBetween method? store that info somewhere?
-If ai sees checkmate, save those moves, no need to recalculate them
-yield_pieces and yield_std_moves has unused piece_type paramter, if I don't include that I could have piece_pos be a tuple of sets representing black and white positions
-would_put_king_in_check could I check this without having to move and/or check all opponent moves?
-King._yield_open_pos Don't we need to check if king would land too close to opponent king?
-- maybe add that check in an overridden King.yield_std_moves?
-Verify the methods that should be yield vs returning e.g. a list
-- return is faster unless you don't need all iterations completed
+✅ Store piece squares in PieceSquares class, speed improvement in Board.iter_pieces and especially Board.get_king
+✅ Only one board instead of generating a new board state every time a change is made
+- Reverse move method which reverts board variables to pre-move state with info from new Move class
+- AI recursively makes moves, checks how good they would be, then reverses them
+- With this change, we don't need board state param which was previously in nearly every method
+✅ Alpha-beta pruning with iterative deepening
+- sort root children by score after each iteration
+*WORKING ON* Files are decimal ascii values instead of 1-length strings to remove need for millions of ord and chr conversions.
+Transposition tables
+- store as dict class variable with key FEN string to value (score, depth_remaining)
+    - could be child class of dict whose constructor pre-fills opening position evaluations
+- use score without search if TTEntry's depth searched is >= cur_depth, otherwise find and store
+- key FEN string to truncate halfmove_clock and fullmove_number for correct matching, but check halfmove_clock to ensure engine is aware of possible draws
+https://chess.stackexchange.com/questions/19633/chess-problem-database-with-pgn-or-fen - Test ability to find mate
+If we add a transposition table, we could preemptively store theory openings in the table
+- store as FEN string to (move, score, depth after move)
+Give the engine its own CPU thread to be able to search at all times?
+- Uses time to store positions in transposition table
+- When engine's turn, start over the search?
+- Could maybe close the thread whenever it's engine turn, have it use the main thread, then when user turn open dedicated thread again.
+Start a thread for each root node of search
+- if num nodes > num threads, restart thread order e.g. thread 1 2 3 4 1 2 3 4 ...
+- I think this only works if each thread has its own copy of board class, otherwise there would be overwriting problems
+- num threads optional command-line argument
+Attack squares matrix for each color? Also pseudo legal end squares matrix for checking king attacked
+- Would be performance improvement if can find way to not have to check every square for verifying if own king would be in check
 
 
 Heuristic:
+If ai sees checkmate, save those moves, no need to recalculate them
 https://youtu.be/3su1RGtmfcw How to evaluate a chess position
 Maybe heuristic could just be result of evaluating the chess position?
 - that would probably require looking at the whole board
 - for speed, it might be necessary to send previous pos eval as parameter if that helps
 Give ai some opening moves so it isn't essentially rando-picking the first move
 - Could incentise developing toward the centre?
-Incentivise trades only if up in material
+Store total material value of each color in Board for quick AI use?
 Dynamic piece values
 - Based on how strong they are in a given position
-- Could be as simple as how many unobstructed moves they can make or pieces they can take or smth
-Currently the AI loves trading its well-developped pieces, this would probably be fixed by dynamic piece values.
+- How many squares they can land on without being targeted, pieces they can take
+- Incentivize moving up
+- check material count, space, king safety...
+- material value dict in engine.py
+- minor piece combos change values a bit
+- dynamic material values
+Space - # enemy squares you control on the opponent's half of the board
+Currently the AI loves trading its well-developed pieces, this would probably be fixed by dynamic piece values.
 - Might also have a tendancy to want to take pieces in basic heuristic, improve that.
 It likes to move rook B1 or G1 with typical 0.642 heuristic value.
 - kind of a useless move, i would disincentivize moves that would prevent a future castle unless important
 Give a little incentive for moves that open up the king to castle
 It sacrificed a pawn for seemingly no reason, maybe to open up file for rook? Photo in discord me
+https://www.chessprogramming.org/Evaluation
+2D array of heuristic piece values?
+- or store value in each piece as class field
+Quiescience search to mitigate horizon effect https://www.chessprogramming.org/Quiescence_Search
+https://www.chessprogramming.org/Move_Ordering
+Only call heuristic for the terminal node?
+- do call game_result each iteration to check for checkmates
+Knights best in the center
+If white and in start position, randomly select an opening for first move.
+- Consult transposition table of pre-filled openings for following moves
+- If black, just use table given how white started
 
 
-Visual:
-Correct chess notation
+Visual/functional:
+Threefold repetition is not yet implemented
+- castling rights clause
+- use dictionary (Counter) of FEN strings : num occurrences!
+    - Write the FEN string for each move when move is made and add to dictionary
+    - if dict[cur_FEN] > 2: game is a draw by threefold repetition
+    - Above does not work if i store the whole string, would need to truncate the last two bits of info (num moves since last progress and current turn)
+FEN
+- piece placement ✔
+- active color (class var)
+- castling rights (method)
+- en passant targets (just if pawn has just moved 2 squares) (method or class var)
+- halfmove clock (class var)
+- fullmove number (class var and method)
+
+Print FEN and PGN after each move
+Offering a draw
+Algebraic notation
+- store as Move class field
 AI vs AI game mode (easier to test)
 Custom game start templates
 - black/white to move
+- would need to modify Piece.moved variable, otherwise it would allow e.g. pawn move two spaces
+    - to implement, check if piece position differs from standard template? maybe not
+        - have moved variable as part of template? (piece_type, color, moved)
+    - is moved only needed for certain pieces? rook, king, pawn?
 Print which piece is moving
+GUI
 
 
-Organisation:
-✅ standard template cells are (piece_type, colour) tuples instead of icons. Empty cells are just marked EMPTY.
-Revisit ICON_SET (needed or just assume char is fine in chessGame line ~106?)
-Split up chessGame into multiple files
-isCastleEligible are unused, remove?
-Change implementation of ChessBoard to not require board parameter?
-- It should just be the object itself, you can create board copies for hypothetical board states and call their methods
-description for each file
-- Might be like this so the other classes have access to the same board?
-- Maybe separate into two classes, one for board logic (in const.py) and the other for board state (many instances)
-- board logic has the methods and iconToObject, board states have the dynamic data structures
-x -> pos ou qch d'autre, pieceObj
-return to snake_case
-chess_piece.py
-does each chess piece need a reference to board object?
-figure out why king needs a different isunderattack method
-- I figured out why! It checks everything except if the potential opponent move would put the opponent's king in check because, even though that would prevent it from making the move that would land on the king's position, it's still a check. You don't need to land on the king to check it, you just need to have an unobstructed end position that is equal to the king's position.
-Use None instead of an EMPTY const variable?
-Rewrite ChessBoard class in new chess_board.py file
-Rename en_passant and castle to move_en_passant and move_castle
-make_move include wrappers for moving en_passant and castle so that the minimax just needs one call without if checks
-- maybe a move could include an integer representing standard, en passant, or castle move
-    - store as constant integers
-    - minimax methods can have move_type integer instead of en_passant and castle boolean variables
-- yield_moves same idea, maybe yield_all_moves method with yield_standard_moves, castle, en passant methods
-Remove need for each ChessPiece method to have cur_board parameter, just use reference given in init method
-Does ChessPiece.is_under_attack need to consider being attacked by a rook after a castle move?
+Organization:
+✅ Standard template cells are (piece_type, color) tuples instead of icons. Empty cells are None.
+✅ Board and Piece classes in separate files
+✅ Empty squares are None in Board._arr
+✅ iter_moves wrapper method that iterates moves of all or optional combination of types
+✅ Moved castling and en passant logic to Board
+✅ Iterable methods are now prefixed 'iter' instead of 'yield'
+✅ make_move takes Move param, no need for separate calls for castling or en passant
+✅ coordinates, move, and positions files for better organization
+✅ Never flip starting_position, even if user color is black?
+✅ Renaming of pos -> square for piece squares to remove ambiguity with chess positions
+✅ peek_move decorator in Board class that makes move, runs func, reverses move then returns func result.
+- Flipping would mess up FEN
+- Board.pretty_print can print a flipped version if user color is black
+- Would probably make coordinates functions simpler
+should iter_en_passant_moves take color parameter?
+Restore "return x" to "return x is not None" in all places
+Replace last_move parameters with board.move_stack[-1]
+ensure all methods using or returning moves uses Move instances
+Attempt to conform to PEP8
+- snake_case, no parentheses around tuple declarations
+replace_piece method
+why do we make move in get_move? shouldnt that start in mini?
+Move str method returns algebraic notation of the move
+negamax if desired
+Engine to get board via method parameters rather than as a class field
+- constructor gives Engine's color
+Store color to move in Board?
+- wouldn't need to specify color in iter_moves or send it as param in Engine.is_end_state
+iter_moves and iter_pieces can take piece_type parameter with new struct
+Maybe use FEN string and start positions instead of moved and prev_moved var?
+- to determine if e.g. castling rights, pawn can move 2 spaces
+Remove is_pawn_promotion_triggered?
+- We should know when it's triggered bc it will be stored in Move instance
+Store moving_piece as Move class var
+- Among other potential uses, it can be used when reversing a pawn promotion move
+Simplify the chain of packing and unpacking for methods that use squares e.g. get_piece
