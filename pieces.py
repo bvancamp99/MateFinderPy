@@ -60,7 +60,7 @@ class Piece:
         
         NOTE: O(n*m)
         '''
-        return Peekable(filter(lambda m: m.tgt_piece is self, self.board.iter_moves(self.opp_color, move_type=MoveType.STD))).has_next()
+        return Peekable(filter(lambda m: m.tgt_piece is self, self.board.iter_moves(move_type=MoveType.STD))).has_next()
 
     def _iter_psuedo_legal_end_squares(self):
         '''
@@ -82,6 +82,9 @@ class Piece:
 
 
 class King(Piece):
+    file_step_list = [-1, 0, 1, -1, 1, -1, 0, 1]
+    rank_step_list = [1, 1, 1, 0, 0, -1, -1, -1]
+
     def is_being_attacked(self, tgt_square=None):
         '''
         A king piece is being attacked (in check) if any opponent piece targets it.
@@ -102,29 +105,17 @@ class King(Piece):
 
     def _iter_psuedo_legal_end_squares(self):
         st_file, st_rank = self.square
-
-        if self._is_open(st_file, st_rank - 1):
-            yield st_file, st_rank - 1
-        if self._is_open(st_file, st_rank + 1):
-            yield st_file, st_rank + 1
-
-        left_file = coordinates.shift_file(st_file, -1)
-        right_file = coordinates.shift_file(st_file, 1)
-        for i in range(-1, 1 + 1):
-            if self._is_open(left_file, st_rank + i):
-                yield (left_file, st_rank + i)
-            if self._is_open(right_file, st_rank + i):
-                yield (right_file, st_rank + i)
+        for file_step, rank_step in zip(King.file_step_list, King.rank_step_list):
+            end_square = st_file + file_step, st_rank + rank_step
+            if self._is_open(end_square):
+                yield end_square
 
     def is_checkmated(self):
         '''
         Returns if this king is checkmated, i.e. it is in check, and there
         are no standard moves or en passants that the player can make.
         '''
-        if not self.is_being_attacked():
-            return False
-
-        return not Peekable(self.board.iter_moves(self.color, move_type=MoveType.STD | MoveType.EN_PASSANT)).has_next()
+        return self.is_being_attacked() and not Peekable(self.board.iter_moves(move_type=MoveType.STD | MoveType.EN_PASSANT)).has_next()
 
 
 class MajorPiece(Piece):
@@ -132,10 +123,10 @@ class MajorPiece(Piece):
 
 
 class Queen(MajorPiece):
-    def __init__(self, letter, square):
-        super().__init__(letter, square)
-        self.rook = Rook(letter, None)
-        self.bishop = Bishop(letter, None)
+    def __init__(self, letter, square, board):
+        super().__init__(letter, square, board)
+        self.rook = Rook(letter, None, board)
+        self.bishop = Bishop(letter, None, board)
 
     def _iter_psuedo_legal_end_squares(self):
         self.rook.square = self.square
@@ -210,72 +201,53 @@ class Bishop(MinorPiece):
     def _iter_psuedo_legal_end_squares(self):
         '''
         For each ordinal direction, yields squares until the first obstruction.
-        
+
         If the first obstruction is a piece of the opposing color, also 
         yield that square.
         '''
         st_file, st_rank = self.square
 
-        def iter_diagonal(max_dist, file_sign=1, rank_sign=1):
-            for cur_dist in range(1, max_dist):
-                end_square = coordinates.shift_file(st_file, file_sign * cur_dist), st_rank + rank_sign * cur_dist
-                tgt_piece = self.board.get_piece(end_square)
-                if tgt_piece is None:
-                    yield end_square
-                else:
-                    if tgt_piece.color == self.opp_color:
-                        yield end_square
-                    break
+        def iter_diagonal(end_file, end_rank):
+            '''
+            NOTE: This func is essentially rook's iter_horizontal and iter_vertical combined.
+            '''
+            # Base case
+            if st_file == end_file or st_rank == end_rank:
+                return
 
-        # max number of open squares in each cardinal direction
-        max_left = ord(st_file) - ord(File.A)
-        max_right = ord(File.H) - ord(st_file)
-        max_up = 8 - st_rank
-        max_down = st_rank - 1
+            # Traverse right if st_file < end_file else left, and up if st_rank < end_rank else down
+            file_step = 1 if st_file < end_file else -1
+            rank_step = 1 if st_rank < end_rank else -1
+            cur_file = st_file + file_step
+            cur_rank = st_rank + rank_step
+            cur_square = cur_file, cur_rank
 
-        # up-left, up-right, down-left, down-right
-        for end_square in itertools.chain(
-            iter_diagonal(min(max_left, max_up), file_sign=-1),
-            iter_diagonal(min(max_right, max_up)),
-            iter_diagonal(min(max_left, max_down), file_sign=-1, rank_sign=-1),
-            iter_diagonal(min(max_right, max_down), rank_sign=-1)
-        ):
+            # Iterate until we reach an end of the board or until a piece is encountered
+            while cur_file != end_file and cur_rank != end_rank and not self.board.has_piece(cur_square):
+                yield cur_square
+                cur_file += file_step
+                cur_rank += rank_step
+                cur_square = cur_file, cur_rank
+
+            # We have reached an end of the board and/or a piece; yield if not ally piece
+            if not self.board.has_piece(cur_square, color=self.color):
+                yield cur_square
+
+        # Up-left, up-right, down-left, down-right
+        for end_square in itertools.chain(iter_diagonal(File.A, 8), iter_diagonal(File.H, 8), iter_diagonal(File.A, 1), iter_diagonal(File.H, 1)):
             yield end_square
 
 
 class Knight(MinorPiece):
+    file_step_list = [-2, -1, 1, 2, 2, 1, -1, -2]
+    rank_dist_list = [1, 2, 2, 1, -1, -2, -2, -1]
+
     def _iter_psuedo_legal_end_squares(self):
         st_file, st_rank = self.square
-
-        def get_L(long_rank=True, file_sign=1, rank_sign=1):
-            file_dist = 1 if long_rank else 2
-            rank_dist = 2 if long_rank else 1
-            end_file = coordinates.shift_file(st_file, file_sign * file_dist)
-            end_rank = st_rank + (rank_sign * rank_dist)
-            if self._is_open(end_file, end_rank):
-                return (end_file, end_rank)
-
-        def yield_all_L():
-            # up-LEFT
-            yield get_L(long_rank=False, file_sign=-1)
-            # UP-left
-            yield get_L(long_rank=True, file_sign=-1)
-            # UP-right
-            yield get_L(long_rank=True)
-            # up-RIGHT
-            yield get_L(long_rank=False)
-            # down-RIGHT
-            yield get_L(long_rank=False, rank_sign=-1)
-            # DOWN-right
-            yield get_L(long_rank=True, rank_sign=-1)
-            # DOWN-left
-            yield get_L(long_rank=True, file_sign=-1, rank_sign=-1)
-            # down-LEFT
-            yield get_L(long_rank=False, file_sign=-1, rank_sign=-1)
-
-        # TODO: have to do this to avoid yielding None, but I don't like it
-        for L in yield_all_L():
-            if L: yield L
+        for file_step, rank_step in zip(Knight.file_step_list, Knight.rank_step_list):
+            end_square = st_file + file_step, st_rank + rank_step
+            if self._is_open(end_square):
+                yield end_square
 
 
 class Pawn(Piece):
@@ -297,16 +269,15 @@ class Pawn(Piece):
         else:
             return rank == 1
 
+    def is_capture_square(self, square):
+        return coordinates.on_board(*square) and self.board.has_piece(square, color=self.opp_color)
+
     def is_being_attacked(self):
         '''
         A pawn can also be being attacked by en passant if it just made a
         two-step move.
         '''
-        for m in self.board.iter_moves(self.opp_color, move_type=MoveType.EN_PASSANT):
-            if m.tgt_piece is self:
-                return True
-
-        return super().is_being_attacked()
+        return Peekable(filter(lambda m: m.tgt_piece is self, self.board.iter_moves(move_type=MoveType.EN_PASSANT))).has_next() or super().is_being_attacked()
 
     def _iter_psuedo_legal_end_squares(self):
         '''
@@ -316,31 +287,25 @@ class Pawn(Piece):
         rank_step = 1 if self.color == Color.WHITE else -1
         end_rank = st_rank + rank_step
 
-        def get_capture_square(file_step):
-            capture_file = coordinates.shift_file(st_file, file_step)
-            capture_square = (capture_file, end_rank)
-            if coordinates.on_board(*capture_square) and self.board.has_piece(capture_square, color=self.opp_color):
-                return capture_square
+        # Capture left
+        end_square = st_file - 1, end_rank
+        if self.is_capture_square(end_square):
+            yield end_square
 
-        # capture left
-        capture_square = get_capture_square(file_step=-1)
-        if capture_square is not None:
-            yield capture_square
+        # Capture right
+        end_square = st_file + 1, end_rank
+        if self.is_capture_square(end_square):
+            yield end_square
 
-        # capture right
-        capture_square = get_capture_square(file_step=1)
-        if capture_square is not None:
-            yield capture_square
-
-        # move up 1
-        end_square = (st_file, end_rank)
+        # Advance 1
+        end_square = st_file, end_rank
         if not self.board.has_piece(end_square):
             yield end_square
 
-            # move up 2
+            # Advance 2
             if not self.has_moved:
                 end_rank += rank_step
-                end_square = (st_file, end_rank)
+                end_square = st_file, end_rank
                 if not self.board.has_piece(end_square):
                     yield end_square
 
