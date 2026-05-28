@@ -29,9 +29,9 @@ class Board:
                 if letter is None:
                     continue
                 square = coordinates.index_to_square(i, j)
-                piece = pieces.TYPE_MAP[letter.upper()](letter, square, self)
+                piece = pieces.TYPE_MAP[letter](letter, square, self)
                 self._arr[i,j] = piece
-                self.piece_squares.add(square, piece.letter)
+                self.piece_squares.add(square, piece.color, piece.type_index)
 
         self.move_stack = []
         self.move_it = Peekable(self.iter_moves()) # TODO: remove color param
@@ -62,7 +62,7 @@ class Board:
             return piece is not None && piece.color == color
 
     def get_king(self, color):
-        return self.get_piece(next(iter(self.piece_squares[color, PieceType.KING])))
+        return self.get_piece(next(iter(self.piece_squares[color, PieceType.KING)))
 
     def get_active_king(self):
         return self.get_piece(next(iter(self.piece_squares[self.fen_class.active_color, PieceType.KING])))
@@ -173,7 +173,7 @@ class Board:
         # Pawn promotion case
         else:
             self.remove_piece(m.moving_piece)
-            upgrade = pieces.TYPE_MAP[m.promotion_letter.upper()](m.promotion_letter, m.end_square, self)
+            upgrade = pieces.TYPE_MAP[m.promotion_letter](m.promotion_letter, m.end_square, self)
             self.put_piece(upgrade, m.end_square)
 
         # NOTE: Active color is updated here
@@ -281,6 +281,14 @@ class Board:
             '''
             Returns file and/or rank of moving piece if needed to remove ambiguity regarding which piece is moving, otherwise returns ''.
             '''
+
+            def iter_ambiguous_pieces():
+                # Iterate non-identical pieces of same type
+                for square in filter(lambda sq: sq != m.st_square, self.piece_squares[m.moving_piece.color, pieces.INDEX_MAP[m.moving_piece.letter.upper()]):
+                    piece = self.get_piece(square)
+                    if isinstance(piece, pieces.Knight):
+                        
+
             def iter_ambiguous_pieces():
                 '''
                 TODO: If only one dark-square and/or light-square bishop, then neither could ever land on the same square as the other.

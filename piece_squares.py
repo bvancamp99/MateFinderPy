@@ -25,21 +25,19 @@ class PieceSquares:
         if isinstance(key, tuple):
             color, type_index = key
             return self._squares_by_type[color][type_index]
+        elif isinstance(key, int):
+            # Key is color
+            return self._squares[key]
         else:
-            color = key
-            return self._squares[color]
+            raise ValueError(f'PieceSquares.__getitem__ received invalid key {key} !')
 
     def __len__(self):
         return len(self[0]) + len(self[1])
 
-    def add(self, square, letter):
-        color = get_color(letter)
-        type_index = INDEX_MAP[letter.upper()]
+    def add(self, square, color, type_index):
         self[color].add(square)
         self[color, type_index].add(square)
 
-    def remove(self, square, letter):
-        color = get_color(letter)
-        type_index = INDEX_MAP[letter.upper()]
+    def remove(self, square, color, type_index):
         self[color].remove(square)
         self[color, type_index].remove(square)

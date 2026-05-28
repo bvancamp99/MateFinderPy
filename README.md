@@ -1,7 +1,7 @@
 # ChessPlayer
 
 
-## TODO bishop pseudo legal refactor like did with rook, iter_between use for disambiguating, iter_squares_between use iter_between, zip for diagonal
+## TODO iter_between use for disambiguating, iter_squares_between use iter_between, zip for diagonal
 - https://www.reddit.com/r/chessbeginners/comments/1pg20ma/comment/nspm0qy/ also check wikipedia disambiguating moves queen example Qff1
 - use coordinates implementation of iter squares between for rook and bishop movement
 - Use is_piece_between to verify if piece could move to on-same-path square
@@ -14,7 +14,6 @@
 - iter_castle_moves need to check without moved variables, use fen
 - Rename Move pawn_promo to promotion_letter
 - engine self.board field, also maybe don't need color as search param anymore?
-- Don't need PieceType enum, use type object instead
 - pawn_promo is letter instead of PieceType enum
 - Issue with fen_class position arr needing a letter but promoting pawn needs piece type.
 - piece.letter field (board.py line 132)
@@ -128,6 +127,7 @@ If white and in start position, randomly select an opening for first move.
 
 
 Visual/functional:
+✅ Insufficient material
 Threefold repetition is not yet implemented
 - castling rights clause
 - use dictionary (Counter) of FEN strings : num occurrences!
@@ -141,7 +141,6 @@ FEN
 - en passant targets (just if pawn has just moved 2 squares) (method or class var)
 - halfmove clock (class var)
 - fullmove number (class var and method)
-
 Print FEN and PGN after each move
 Offering a draw
 Algebraic notation

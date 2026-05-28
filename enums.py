@@ -7,6 +7,11 @@
 import enum
 
 
+class Color(enum.IntEnum):
+    BLACK = 0
+    WHITE = 1
+
+
 class PieceType(enum.IntEnum):
     KING = 0
     QUEEN = 1
@@ -14,11 +19,6 @@ class PieceType(enum.IntEnum):
     BISHOP = 3
     KNIGHT = 4
     PAWN = 5
-
-
-class Color(enum.IntEnum):
-    BLACK = 0
-    WHITE = 1
 
 
 class MoveType(enum.IntEnum):

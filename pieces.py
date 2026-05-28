@@ -6,29 +6,29 @@
 
 import itertools
 
-from enums import Color, MoveType, File
+from enums import PieceType, Color, MoveType, File
 from move import Move
 from peekable import Peekable
 import coordinates
 
 
 TYPE_MAP = {
-    'K': King
-    'Q': Queen
-    'R': Rook
-    'B': Bishop
-    'N': Knight
-    'P': Pawn
+    'K': King, 'k': King,
+    'Q': Queen, 'q': Queen,
+    'R': Rook, 'r': Rook,
+    'B': Bishop, 'b': Bishop,
+    'N': Knight, 'n': Knight,
+    'P': Pawn, 'p': Pawn
 }
 
 
 INDEX_MAP = {
-    'K': 0,
-    'Q': 1,
-    'R': 2,
-    'B': 3,
-    'N': 4,
-    'P': 5
+    'K': PieceType.KING, 'k': PieceType.KING,
+    'Q': PieceType.QUEEN, 'q': PieceType.QUEEN,
+    'R': PieceType.ROOK, 'r': PieceType.ROOK,
+    'B': PieceType.BISHOP, 'b': PieceType.BISHOP,
+    'N': PieceType.KNIGHT, 'n': PieceType.KNIGHT,
+    'P': PieceType.PAWN, 'p': PieceType.PAWN
 }
 
 
@@ -41,8 +41,10 @@ class Piece:
         self.letter = letter
         self.square = square
         self.board = board
+
         self.color = get_color(letter)
         self.opp_color = self.color ^ 1
+        self.type_index = INDEX_MAP[letter]
 
     def __str__(self):
         return self.letter
@@ -257,17 +259,11 @@ class Pawn(Piece):
         A pawn has moved if and only if it is not on its starting rank.
         '''
         _, rank = self.square
-        if self.color == Color.WHITE:
-            return rank == 2
-        else:
-            return rank == 7
+        return rank == 2 if self.color == Color.WHITE else rank == 7
 
     def is_promotion_square(self, square):
         _, rank = self.square
-        if self.color == Color.WHITE:
-            return rank == 8
-        else:
-            return rank == 1
+        return rank == 8 if self.color == Color.WHITE else rank == 1
 
     def is_capture_square(self, square):
         return coordinates.on_board(*square) and self.board.has_piece(square, color=self.opp_color)
