@@ -55,6 +55,30 @@ class Piece:
         '''
         return coordinates.on_board(*square) and not self.board.has_piece(square, color=self.color)
 
+    def iter_psuedo_legal_end_squares(self):
+        '''
+        Iterates all pseudo-legal (doesn't verify if ally king would be in
+        check after move), standard (i.e. non-castle, non-en passant) end
+        squares for this piece from its current square.
+        '''
+        raise Exception('Instance of abstract-like class Piece')
+
+    def get_standard_move(self, end_square):
+        '''
+        Returns a standard (non-castle, non-en passant) move given the end square.
+        '''
+        return Move(self.board, MoveType.STD, self.square, end_square, tgt_piece=self.board.get_piece(end_square))
+
+    def iter_my_standard_moves(self):
+        '''
+        Iterates all legal standard (i.e. non-castle, non-en passant) moves for
+        this piece from its current square.
+        '''
+        for end_square in self.iter_psuedo_legal_end_squares():
+            m = self.get_standard_move(end_square)
+            if not self.board.would_put_king_in_check(m):
+                yield m
+
     def is_being_attacked(self):
         '''
         A non-king piece is being attacked if the opponent can make a move that 
@@ -64,28 +88,17 @@ class Piece:
         '''
         return Peekable(filter(lambda m: m.tgt_piece is self, self.board.iter_moves(move_type=MoveType.STD))).has_next()
 
-    def _iter_psuedo_legal_end_squares(self):
-        '''
-        Iterates all pseudo-legal (doesn't verify if ally king would be in
-        check after move), standard (i.e. non-castle, non-en passant) end
-        squares for this piece from its current square.
-        '''
-        raise Exception('Instance of abstract-like class Piece')
-
-    def iter_my_standard_moves(self):
-        '''
-        Iterates all legal standard (i.e. non-castle, non-en passant) moves for
-        this piece from its current square.
-        '''
-        for end_square in self._iter_psuedo_legal_end_squares():
-            m = Move(self.board, MoveType.STD, self.square, end_square, tgt_piece=self.board.get_piece(end_square))
-            if not self.board.would_put_king_in_check(m):
-                yield m
-
 
 class King(Piece):
-    file_step_list = [-1, 0, 1, -1, 1, -1, 0, 1]
-    rank_step_list = [1, 1, 1, 0, 0, -1, -1, -1]
+    file_steps = [-1, 0, 1, -1, 1, -1, 0, 1]
+    rank_steps = [1, 1, 1, 0, 0, -1, -1, -1]
+
+    def iter_psuedo_legal_end_squares(self):
+        st_file, st_rank = self.square
+        for file_step, rank_step in zip(King.file_steps, King.rank_steps):
+            end_square = st_file + file_step, st_rank + rank_step
+            if self._is_open(end_square):
+                yield end_square
 
     def is_being_attacked(self, tgt_square=None):
         '''
@@ -100,17 +113,10 @@ class King(Piece):
             tgt_square = self.square
 
         for piece in self.board.iter_pieces(self.opp_color):
-            for square in piece._iter_psuedo_legal_end_squares():
+            for square in piece.iter_psuedo_legal_end_squares():
                 if square == tgt_square:
                     return True
         return False
-
-    def _iter_psuedo_legal_end_squares(self):
-        st_file, st_rank = self.square
-        for file_step, rank_step in zip(King.file_step_list, King.rank_step_list):
-            end_square = st_file + file_step, st_rank + rank_step
-            if self._is_open(end_square):
-                yield end_square
 
     def is_checkmated(self):
         '''
@@ -130,14 +136,14 @@ class Queen(MajorPiece):
         self.rook = Rook(letter, None, board)
         self.bishop = Bishop(letter, None, board)
 
-    def _iter_psuedo_legal_end_squares(self):
+    def iter_psuedo_legal_end_squares(self):
         self.rook.square = self.square
         self.bishop.square = self.square
-        return itertools.chain(self.rook._iter_psuedo_legal_end_squares(), self.bishop._iter_psuedo_legal_end_squares())
+        return itertools.chain(self.rook.iter_psuedo_legal_end_squares(), self.bishop.iter_psuedo_legal_end_squares())
 
 
 class Rook(MajorPiece):
-    def _iter_psuedo_legal_end_squares(self):
+    def iter_psuedo_legal_end_squares(self):
         '''
         TODO: test
 
@@ -200,7 +206,7 @@ class MinorPiece(Piece):
 
 
 class Bishop(MinorPiece):
-    def _iter_psuedo_legal_end_squares(self):
+    def iter_psuedo_legal_end_squares(self):
         '''
         For each ordinal direction, yields squares until the first obstruction.
 
@@ -241,18 +247,22 @@ class Bishop(MinorPiece):
 
 
 class Knight(MinorPiece):
-    file_step_list = [-2, -1, 1, 2, 2, 1, -1, -2]
-    rank_dist_list = [1, 2, 2, 1, -1, -2, -2, -1]
+    file_steps = [-2, -1, 1, 2, 2, 1, -1, -2]
+    rank_steps = [1, 2, 2, 1, -1, -2, -2, -1]
 
-    def _iter_psuedo_legal_end_squares(self):
+    def iter_psuedo_legal_end_squares(self):
         st_file, st_rank = self.square
-        for file_step, rank_step in zip(Knight.file_step_list, Knight.rank_step_list):
+        for file_step, rank_step in zip(Knight.file_steps, Knight.rank_steps):
             end_square = st_file + file_step, st_rank + rank_step
             if self._is_open(end_square):
                 yield end_square
 
 
 class Pawn(Piece):
+    def __init__(self, letter, square, board):
+        super().__init__(letter, square, board)
+        self.promotion_letters = ['Q', 'R', 'B', 'N'] if self.color == Color.WHITE else ['q', 'r', 'b', 'n']
+
     @property
     def has_moved(self):
         '''
@@ -268,14 +278,7 @@ class Pawn(Piece):
     def is_capture_square(self, square):
         return coordinates.on_board(*square) and self.board.has_piece(square, color=self.opp_color)
 
-    def is_being_attacked(self):
-        '''
-        A pawn can also be being attacked by en passant if it just made a
-        two-step move.
-        '''
-        return Peekable(filter(lambda m: m.tgt_piece is self, self.board.iter_moves(move_type=MoveType.EN_PASSANT))).has_next() or super().is_being_attacked()
-
-    def _iter_psuedo_legal_end_squares(self):
+    def iter_psuedo_legal_end_squares(self):
         '''
         NOTE: Does not yield possible en passant moves. Go to Board.iter_en_passant_moves
         '''
@@ -312,17 +315,24 @@ class Pawn(Piece):
 
         If the move triggers a pawn promotion, 4 moves (1 for each possible promotion) will be generated.
         '''
-        for end_square in self._iter_psuedo_legal_end_squares():
+        for end_square in self.iter_psuedo_legal_end_squares():
             # If pawn promotion triggered
             if self.is_promotion_square(end_square):
                 # Yield 4 moves, 1 for each possible promotion
-                promotion_letters = ['Q', 'R', 'B', 'N'] if self.color == Color.WHITE else ['q', 'r', 'b', 'n']
-                for pl in promotion_letters:
-                    m = Move(self.board, MoveType.STD, self.square, end_square, tgt_piece=self.board.get_piece(end_square), promotion_letter=pl)
+                for pl in self.promotion_letters:
+                    m = self.get_standard_move(end_square)
+                    m.promotion_letter = pl
                     if not self.board.would_put_king_in_check(m):
                         yield m
             # Else yield 1 move as usual
             else:
-                m = Move(self.board, MoveType.STD, self.square, end_square, tgt_piece=self.board.get_piece(end_square))
+                m = self.get_standard_move(end_square)
                 if not self.board.would_put_king_in_check(m):
                     yield m
+
+    def is_being_attacked(self):
+        '''
+        A pawn can also be attacked by en passant if it just made a
+        two-step move.
+        '''
+        return Peekable(filter(lambda m: m.tgt_piece is self, self.board.iter_moves(move_type=MoveType.EN_PASSANT))).has_next() or super().is_being_attacked()

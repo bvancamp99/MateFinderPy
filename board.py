@@ -287,7 +287,7 @@ class Board:
                 for square in filter(lambda sq: sq != m.st_square, self.piece_squares[m.moving_piece.color, pieces.INDEX_MAP[m.moving_piece.letter.upper()]):
                     piece = self.get_piece(square)
                     if isinstance(piece, pieces.Knight):
-                        
+                        for same_end_square # TODO complete
 
             def iter_ambiguous_pieces():
                 '''

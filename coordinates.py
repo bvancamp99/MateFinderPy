@@ -49,9 +49,9 @@ def iter_between(i, j):
     return (btwn for btwn in range(i + step, j, step))
 
 
-def iter_squares_between(x_file, x_rank, y_file, y_rank):
+def iter_rook_squares_between(x_file, x_rank, y_file, y_rank):
     '''
-    Iterates squares between two squares that are on the same rank, file, or diagonal path.
+    Iterates squares between two squares that have the same rank or file.
     '''
     # Horizontal
     if x_rank == y_rank:
@@ -61,9 +61,17 @@ def iter_squares_between(x_file, x_rank, y_file, y_rank):
     elif x_file == y_file:
         for btwn_rank in iter_between(x_rank, y_rank):
             yield x_file, btwn_rank
+    else:
+        raise ValueError(f'iter_rook_squares_between called with squares not on same rank or file! {x_file}{x_rank}, {y_file}{y_rank}')
+
+
+def iter_bishop_squares_between(x_file, x_rank, y_file, y_rank):
+    '''
+    Iterates squares between two squares that are facing diagonally.
+    '''
     # Diagonal
-    elif abs(x_file - y_file) == abs(x_rank - y_rank):
+    if abs(x_file - y_file) == abs(x_rank - y_rank):
         for btwn_file, btwn_rank in zip(iter_between(x_file, y_file), iter_between(x_rank, y_rank)):
             yield btwn_file, btwn_rank
     else:
-        raise ValueError(f'iter_squares_between called with squares not on same rank, file, or diagonal path! {x_file}{x_rank}, {y_file}{y_rank}')
+        raise ValueError(f'iter_bishop_squares_between called with squares not on same diagonal path! {x_file}{x_rank}, {y_file}{y_rank}')
