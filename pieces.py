@@ -6,10 +6,10 @@
 
 import itertools
 
+from coordinates import Square, on_board
 from enums import PieceType, Color, MoveType, File
 from move import Move
 from peekable import Peekable
-import coordinates
 
 
 TYPE_MAP = {
@@ -53,19 +53,26 @@ class Piece:
         '''
         Returns if square is on board and not occupied by an ally piece.
         '''
-        return coordinates.on_board(*square) and not self.board.has_piece(square, color=self.color)
+        return on_board(square) and not self.board.has_piece(square, color=self.color)
+
+    def is_pseudo_legal_end_square(self, end_square):
+        '''
+        Returns if this piece can move from self.square to end_square, minus verifying if its own king would be in check after the move.
+        '''
+        raise ValueError('Entered is_pseudo_legal_end_square method of abstract-like class Piece!')
 
     def iter_psuedo_legal_end_squares(self):
         '''
-        Iterates all pseudo-legal (doesn't verify if ally king would be in
-        check after move), standard (i.e. non-castle, non-en passant) end
-        squares for this piece from its current square.
+        Iterates all pseudo-legal (doesn't verify if ally king would be in check after move), 
+        standard (i.e. non-castle, non-en passant) end squares for this piece from its current square.
         '''
-        raise Exception('Instance of abstract-like class Piece')
+        raise ValueError('Entered iter_pseudo_legal_end_squares method of abstract-like class Piece!')
 
     def get_standard_move(self, end_square):
         '''
         Returns a standard (non-castle, non-en passant) move given the end square.
+
+        NOTE: Assumes that end_square is pseudo legal.
         '''
         return Move(self.board, MoveType.STD, self.square, end_square, tgt_piece=self.board.get_piece(end_square))
 
@@ -90,13 +97,14 @@ class Piece:
 
 
 class King(Piece):
-    file_steps = [-1, 0, 1, -1, 1, -1, 0, 1]
-    rank_steps = [1, 1, 1, 0, 0, -1, -1, -1]
+    steps = {(0, 1), (-1, -1), (-1, 1), (1, 1), (1, -1), (-1, 0), (1, 0), (0, -1)}
+
+    def is_pseudo_legal_end_square(self, end_square):
+        return (end_square.file - self.square.file, end_square.rank - self.square.rank) in King.steps and self._is_open(end_square)
 
     def iter_psuedo_legal_end_squares(self):
-        st_file, st_rank = self.square
-        for file_step, rank_step in zip(King.file_steps, King.rank_steps):
-            end_square = st_file + file_step, st_rank + rank_step
+        for file_step, rank_step in King.steps:
+            end_square = Square(self.square.file + file_step, self.square.rank + rank_step)
             if self._is_open(end_square):
                 yield end_square
 
@@ -126,23 +134,75 @@ class King(Piece):
         return self.is_being_attacked() and not Peekable(self.board.iter_moves(move_type=MoveType.STD | MoveType.EN_PASSANT)).has_next()
 
 
-class MajorPiece(Piece):
-    pass
-
-
-class Queen(MajorPiece):
-    def __init__(self, letter, square, board):
-        super().__init__(letter, square, board)
-        self.rook = Rook(letter, None, board)
-        self.bishop = Bishop(letter, None, board)
+class Queen(Rook, Bishop):
+    def is_pseudo_legal_end_square(self, end_square):
+        return Rook.is_pseudo_legal_end_square(self, end_square) or Bishop.is_pseudo_legal_end_square(self, end_square)
 
     def iter_psuedo_legal_end_squares(self):
-        self.rook.square = self.square
-        self.bishop.square = self.square
-        return itertools.chain(self.rook.iter_psuedo_legal_end_squares(), self.bishop.iter_psuedo_legal_end_squares())
+        return itertools.chain(Rook.iter_psuedo_legal_end_squares(self), Bishop.iter_psuedo_legal_end_squares(self))
 
 
-class Rook(MajorPiece):
+class Rook(Piece):
+    def is_pseudo_legal_end_square(self, end_square):
+        # TODO: Iterate pseudo squares once and store in attack squares matrix, then no need to iter again here
+        # Horizontal
+        if self.square.rank == end_square.rank:
+            return end_square in set(self.iter_horizontal(end_square.file))
+        # Vertical
+        elif self.square.file == end_square.file:
+            return end_square in set(self.iter_vertical(end_square.rank))
+        # Neither
+        else:
+            return False
+
+    def iter_horizontal(end_file):
+        '''
+        Iterates squares horizontally from self.square.file +/- 1 until the first obstruction and/or end_file.
+        
+        If the first obstruction is a piece of the opposing color, also 
+        yield that square.
+        '''
+        # Base case: No movement
+        if self.square.file == end_file:
+            return
+
+        # Traverse right if self.square.file < end_file else left
+        step = 1 if self.square.file < end_file else -1
+        cur_square = Square(self.square.file + step, self.square.rank)
+
+        # Iterate until end_file or until a piece is encountered
+        while cur_square.file != end_file and not self.board.has_piece(cur_square):
+            yield cur_square
+            cur_square = Square(cur_square.file + step, self.square.rank)
+
+        # We have reached end_file and/or a piece; yield if not ally piece
+        if not self.board.has_piece(cur_square, color=self.color):
+            yield cur_square
+
+    def iter_vertical(end_rank):
+        '''
+        Iterates squares vertically from self.square.rank +/- 1 until the first obstruction and/or end_rank.
+        
+        If the first obstruction is a piece of the opposing color, also 
+        yield that square.
+        '''
+        # Base case: No movement
+        if self.square.rank == end_rank:
+            return
+
+        # Traverse up if self.square.rank < end_rank else down
+        step = 1 if self.square.rank < end_rank else -1
+        cur_square = Square(self.square.file, self.square.rank + step)
+
+        # Iterate until end_rank or until a piece is encountered
+        while cur_square.rank != end_rank and not self.board.has_piece(cur_square):
+            yield cur_square
+            cur_square = Square(self.square.file, cur_square.rank + step)
+
+        # We have reached end_rank and/or a piece; yield if not ally piece
+        if not self.board.has_piece(cur_square, color=self.color):
+            yield cur_square
+
     def iter_psuedo_legal_end_squares(self):
         '''
         TODO: test
@@ -152,108 +212,73 @@ class Rook(MajorPiece):
         If the first obstruction is a piece of the opposing color, also 
         yield that square.
         '''
-        st_file, st_rank = self.square
-
-        # ←→
-        def iter_horizontal(end_file):
-            # Base case
-            if st_file == end_file:
-                return
-
-            # Traverse right if st_file < end_file else left
-            step = 1 if st_file < end_file else -1
-            cur_file = st_file + step
-            cur_square = cur_file, st_rank
-
-            # Iterate until end_file or until a piece is encountered
-            while cur_file != end_file and not self.board.has_piece(cur_square):
-                yield cur_square
-                cur_file += step
-                cur_square = cur_file, st_rank
-
-            # We have reached end_file and/or a piece; yield if not ally piece
-            if not self.board.has_piece(cur_square, color=self.color):
-                yield cur_square
-
-        # ↓↑
-        def iter_vertical(end_rank):
-            # Base case
-            if st_rank == end_rank:
-                return
-
-            # Traverse up if st_rank < end_rank else down
-            step = 1 if st_rank < end_rank else -1
-            cur_rank = st_rank + step
-            cur_square = st_file, cur_rank
-
-            # Iterate until end_rank or until a piece is encountered
-            while cur_rank != end_rank and not self.board.has_piece(cur_square):
-                yield cur_square
-                cur_rank += step
-                cur_square = st_file, cur_rank
-
-            # We have reached end_rank and/or a piece; yield if not ally piece
-            if not self.board.has_piece(cur_square, color=self.color):
-                yield cur_square
-
         # ← → ↓ ↑
-        for end_square in itertools.chain(iter_horizontal(File.A), iter_horizontal(File.H), iter_vertical(1), iter_vertical(8)):
+        for end_square in itertools.chain(self.iter_horizontal(File.A), self.iter_horizontal(File.H), self.iter_vertical(1), self.iter_vertical(8)):
             yield end_square
 
 
-class MinorPiece(Piece):
-    pass
+class Bishop(Piece):
+    def is_pseudo_legal_end_square(self, end_square):
+        # TODO: Iterate pseudo squares once and store in attack squares matrix, then no need to iter again here
+        # On same diagonal path
+        if abs(end_square.file - self.square.file) == abs(end_square.rank - self.square.rank):
+            return end_square in set(self.iter_diagonal(end_square))
+        else:
+            return False
 
+    def iter_diagonal(end_square):
+        '''
+        Iterates squares diagonally from self.square.file +/- 1 and self.square.rank +/- 1 until end_square.file, end_square.rank, and/or an obstruction is reached.
 
-class Bishop(MinorPiece):
+        If the first obstruction is a piece of the opposing color, also 
+        yield that square.
+
+        NOTE: This method is essentially rook's iter_horizontal and iter_vertical combined.
+        '''
+        # Base case 1: No movement
+        if self.square.file == end_square.file or self.square.rank == end_square.rank:
+            return
+        # Base case 2: Not on same diagonal path
+        elif abs(end_square.file - self.square.file) != abs(end_square.rank - self.square.rank):
+            return
+
+        # Traverse right if self.square.file < end_square.file else left, and up if self.square.rank < end_square.rank else down
+        file_step = 1 if self.square.file < end_square.file else -1
+        rank_step = 1 if self.square.rank < end_square.rank else -1
+        cur_square = Square(self.square.file + file_step, self.square.rank + rank_step)
+
+        # Iterate until we reach an end of the board or until a piece is encountered
+        while cur_square.file != end_square.file and cur_square.rank != end_square.rank and not self.board.has_piece(cur_square):
+            yield cur_square
+            cur_square = Square(cur_square.file + file_step, cur_square.rank + rank_step)
+
+        # We have reached an end of the board and/or a piece; yield if not ally piece
+        if not self.board.has_piece(cur_square, color=self.color):
+            yield cur_square
+
     def iter_psuedo_legal_end_squares(self):
         '''
+        TODO: test
+
         For each ordinal direction, yields squares until the first obstruction.
 
         If the first obstruction is a piece of the opposing color, also 
         yield that square.
         '''
-        st_file, st_rank = self.square
-
-        def iter_diagonal(end_file, end_rank):
-            '''
-            NOTE: This func is essentially rook's iter_horizontal and iter_vertical combined.
-            '''
-            # Base case
-            if st_file == end_file or st_rank == end_rank:
-                return
-
-            # Traverse right if st_file < end_file else left, and up if st_rank < end_rank else down
-            file_step = 1 if st_file < end_file else -1
-            rank_step = 1 if st_rank < end_rank else -1
-            cur_file = st_file + file_step
-            cur_rank = st_rank + rank_step
-            cur_square = cur_file, cur_rank
-
-            # Iterate until we reach an end of the board or until a piece is encountered
-            while cur_file != end_file and cur_rank != end_rank and not self.board.has_piece(cur_square):
-                yield cur_square
-                cur_file += file_step
-                cur_rank += rank_step
-                cur_square = cur_file, cur_rank
-
-            # We have reached an end of the board and/or a piece; yield if not ally piece
-            if not self.board.has_piece(cur_square, color=self.color):
-                yield cur_square
-
         # Up-left, up-right, down-left, down-right
         for end_square in itertools.chain(iter_diagonal(File.A, 8), iter_diagonal(File.H, 8), iter_diagonal(File.A, 1), iter_diagonal(File.H, 1)):
             yield end_square
 
 
-class Knight(MinorPiece):
-    file_steps = [-2, -1, 1, 2, 2, 1, -1, -2]
-    rank_steps = [1, 2, 2, 1, -1, -2, -2, -1]
+class Knight(Piece):
+    steps = {(2, -1), (1, 2), (2, 1), (-1, -2), (-2, -1), (-2, 1), (1, -2), (-1, 2)}
+
+    def is_pseudo_legal_end_square(self, end_square):
+        return (end_square.file - self.square.file, end_square.rank - self.square.rank) in Knight.steps and self._is_open(end_square)
 
     def iter_psuedo_legal_end_squares(self):
-        st_file, st_rank = self.square
-        for file_step, rank_step in zip(Knight.file_steps, Knight.rank_steps):
-            end_square = st_file + file_step, st_rank + rank_step
+        for file_step, rank_step in Knight.steps:
+            end_square = Square(self.square.file + file_step, self.square.rank + rank_step)
             if self._is_open(end_square):
                 yield end_square
 
@@ -268,43 +293,44 @@ class Pawn(Piece):
         '''
         A pawn has moved if and only if it is not on its starting rank.
         '''
-        _, rank = self.square
-        return rank == 2 if self.color == Color.WHITE else rank == 7
+        return self.square.rank == 2 if self.color == Color.WHITE else self.square.rank == 7
 
     def is_promotion_square(self, square):
-        _, rank = self.square
-        return rank == 8 if self.color == Color.WHITE else rank == 1
+        return self.square.rank == 8 if self.color == Color.WHITE else self.square.rank == 1
 
     def is_capture_square(self, square):
-        return coordinates.on_board(*square) and self.board.has_piece(square, color=self.opp_color)
+        return on_board(square) and self.board.has_piece(square, color=self.opp_color)
+
+    def is_pseudo_legal_end_square(self, end_square):
+        # TODO: Store iter_psuedo_legal_end_squares result in order to not need to iterate again for this method?
+        return end_square in set(self.iter_psuedo_legal_end_squares())
 
     def iter_psuedo_legal_end_squares(self):
         '''
         NOTE: Does not yield possible en passant moves. Go to Board.iter_en_passant_moves
         '''
-        st_file, st_rank = self.square
         rank_step = 1 if self.color == Color.WHITE else -1
-        end_rank = st_rank + rank_step
+        end_rank = self.square.rank + rank_step
 
         # Capture left
-        end_square = st_file - 1, end_rank
+        end_square = Square(self.square.file - 1, end_rank)
         if self.is_capture_square(end_square):
             yield end_square
 
         # Capture right
-        end_square = st_file + 1, end_rank
+        end_square = Square(self.square.file + 1, end_rank)
         if self.is_capture_square(end_square):
             yield end_square
 
         # Advance 1
-        end_square = st_file, end_rank
+        end_square = Square(self.square.file, end_rank)
         if not self.board.has_piece(end_square):
             yield end_square
 
             # Advance 2
             if not self.has_moved:
                 end_rank += rank_step
-                end_square = st_file, end_rank
+                end_square = Square(self.square.file, end_rank)
                 if not self.board.has_piece(end_square):
                     yield end_square
 

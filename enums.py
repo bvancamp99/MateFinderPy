@@ -1,7 +1,7 @@
 # Author: Bryce Van Camp
 # Project: MateFinder
 # File: enums.py
-# Description: Enums to be used throughout the project.
+# Description: Enums to be used throughout the project
 
 
 import enum

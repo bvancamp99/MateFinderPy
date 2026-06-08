@@ -31,7 +31,7 @@ class Peekable:
                 raise
             return default
 
-        # add back to iterator beginning if before StopIteration
+        # Add back to iterator beginning if before StopIteration
         self._it = itertools.chain([peeked_var], self._it)
 
         return peeked_var

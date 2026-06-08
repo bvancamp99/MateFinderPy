@@ -36,20 +36,8 @@ class Board:
         self.move_stack = []
         self.move_it = Peekable(self.iter_moves()) # TODO: remove color param
 
-    def __init__(self, user_color, fen_str):
-        self.user_color = user_color
-
-        self._arr = np.array([[None] * 8 for _ in range(8)])
-        self.piece_squares = piece_squares.PieceSquares()
-
-        fen_arr = fen_str.split()
-        self.set_initial_state(fen_arr[0])
-        self.fen_class = fen.FenClass(self._arr, *fen_arr[1:])
-
-        self.move_stack = []
-
     def get_piece(self, square):
-        return self._arr[coordinates.square_to_index(*square)]
+        return self._arr[coordinates.square_to_index(square)]
 
     def has_piece(self, square, color=None):
         '''
@@ -59,7 +47,7 @@ class Board:
         if color is None:
             return piece is not None
         else:
-            return piece is not None && piece.color == color
+            return piece is not None and piece.color == color
 
     def get_king(self, color):
         return self.get_piece(next(iter(self.piece_squares[color, PieceType.KING)))
@@ -125,7 +113,7 @@ class Board:
         Removes piece from the board and updates data structures.
         '''
         self.piece_squares.remove(piece.square, piece.letter)
-        i, j = coordinates.square_to_index(*piece.square)
+        i, j = coordinates.square_to_index(piece.square)
         self.fen_class.piece_placement[i,j] = None
         self._arr[i,j] = None
 
@@ -135,7 +123,7 @@ class Board:
         '''
         piece.square = square
         self.piece_squares.add(square, piece.letter)
-        i, j = coordinates.square_to_index(*square)
+        i, j = coordinates.square_to_index(square)
         self.fen_class.piece_placement[i,j] = piece.letter
         self._arr[i,j] = piece
 
@@ -182,7 +170,7 @@ class Board:
         self.move_it = Peekable(self.iter_moves())
 
         # Add check or checkmate char to algebraic notation if applicable
-        if self.get_active_king().is_being_attacked:
+        if m.algebraic_notation[-1] not in ['+', '#'] and self.get_active_king().is_being_attacked:
             m.algebraic_notation += '+' if self.move_it.has_next() else '#'
 
         self.move_stack.append(m)
@@ -281,30 +269,18 @@ class Board:
             '''
             Returns file and/or rank of moving piece if needed to remove ambiguity regarding which piece is moving, otherwise returns ''.
             '''
-
-            def iter_ambiguous_pieces():
-                # Iterate non-identical pieces of same type
-                for square in filter(lambda sq: sq != m.st_square, self.piece_squares[m.moving_piece.color, pieces.INDEX_MAP[m.moving_piece.letter.upper()]):
-                    piece = self.get_piece(square)
-                    if isinstance(piece, pieces.Knight):
-                        for same_end_square # TODO complete
-
-            def iter_ambiguous_pieces():
+            def iter_ambiguous_pieces(piece, end_square):
                 '''
-                TODO: If only one dark-square and/or light-square bishop, then neither could ever land on the same square as the other.
-                - Always true except when pawn promotes to bishop
-                - Therefore could have a base case instead of iterating all of their moves in almost all situations.
-
-                Iterates pieces of the same type as the moving piece that can land on the target end square.
+                Iterates pieces of the same type and color as the moving piece that can also land on the target end square.
 
                 NOTE: There can be 2 (very rarely), 1 (sometimes), and usually 0 ambiguous pieces.
                 '''
                 # Iterate non-identical pieces of same type
-                for square in filter(lambda sq: sq != m.st_square, self.piece_squares[m.moving_piece.color, m.moving_piece.piece_type]):
-                    piece = self.get_piece(square)
-                    # Iterate ambiguous moves
-                    for amb_m in filter(lambda cur_m: cur_m.end_square == m.end_square, piece.iter_my_standard_moves()):
-                        yield piece
+                for piece_square in filter(lambda sq: sq != piece.square, self.piece_squares[piece.color, piece.type_index]):
+                    cur_piece = self.get_piece(piece_square)
+                    # Disambiguation needed if move to end square is fully legal
+                    if cur_piece.is_pseudo_legal_end_square(end_square) and not self.would_put_king_in_check(cur_piece.get_standard_move(end_square)):
+                        yield cur_piece
 
             st_file, st_rank = m.st_square
             dif_file = False

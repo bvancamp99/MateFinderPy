@@ -1,14 +1,12 @@
-# ChessPlayer
-
-
-## TODO iter_between use for disambiguating, iter_squares_between use iter_between, zip for diagonal
-- https://www.reddit.com/r/chessbeginners/comments/1pg20ma/comment/nspm0qy/ also check wikipedia disambiguating moves queen example Qff1
-- use coordinates implementation of iter squares between for rook and bishop movement
-- Use is_piece_between to verify if piece could move to on-same-path square
-- Is it still an ambiguous piece if its move would put its king in check?
-    - it appears not
-- iter pseudo legal moves then if end square matches, verify that own king would not be in check before including?
-
+Working on:
+Square namedtuple usage in Knight and Pawn
+https://www.chess.com/blog/AnImbalancedPosition/positional-continuity-in-chess
+https://www.chessprogramming.org/Incremental_Updates
+Maybe just use pseudo legal moves, then perform all of them in engine, etc. and undo ones that put own king in check
+- Attack squares just pseudo legal moves bc those threaten king; in start, can just make moves, check, reverse, then give correct algebraic notation
+Disambiguation string for algebraic notation
+- https://www.reddit.com/r/chessbeginners/comments/1pg20ma/comment/nspm0qy/ check wikipedia disambiguating moves queen example Qff1 to ensure correct implementation
+~
 - Lighter version of make_move for would_put_king_in_check method?
     - Only update _arr and stuff necessary to check if king under attack
 - iter_castle_moves need to check without moved variables, use fen
@@ -43,9 +41,8 @@ Bugs:
 ✅ Fixed Pawn.is_being_attacked returned False if it wasn't the last piece to move
 ✅ Fixed potential bug in chessGame.py line 223: for x in self.yieldPositionsBetween(x, y) uses same name as param for local var
 ✅ Fixed king was allowed to castle through check
-Reverse move doesn't account for pawn promotion, so it would move post-promotion piece back
-- store in move instance if the move triggers pawn promotion?
-- TODO: promote pawn in make_move and revert in reverse_move
+✅ Reverse move doesn't account for pawn promotion, so it would move post-promotion piece back
+- Move.promotion_letter to keep track of moves that trigger pawn promotion
 Pawn promotion done after checking heuristic and game result
 https://www.chess.com/article/view/how-chess-games-can-end-8-ways-explained
 - insufficient material not just king vs king
@@ -171,6 +168,13 @@ Organization:
 - Flipping would mess up FEN
 - Board.pretty_print can print a flipped version if user color is black
 - Would probably make coordinates functions simpler
+✅ Multiple inheritance for Queen class instead of internally storing Rook and Bishop instances
+✅ Square namedtuple
+- TODO: iter_pseudo_legal_end_squares should iter Square instances
+Instead of is_pseudo_legal_end_square, use attack table to store which pieces can pseudo-legally move to end_square (and another table for fully legal)
+- Then just check index to know if piece can make that movement
+
+Piece.is_pseudo_legal_end_square method
 should iter_en_passant_moves take color parameter?
 Restore "return x" to "return x is not None" in all places
 Replace last_move parameters with board.move_stack[-1]
