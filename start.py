@@ -18,7 +18,7 @@ import fen
 def get_user_color():
     user_color = None
     while user_color not in {'1', '2', '3'}:
-        user_color = input('Choose colour (1: black, 2: white, 3: random): ')
+        user_color = input('Choose color (1: Black, 2: White, 3: Random): ')
 
     user_color = int(user_color) - 1
     if user_color == 2:

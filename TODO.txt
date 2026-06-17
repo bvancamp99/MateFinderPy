@@ -1,5 +1,5 @@
 Working on:
-Square namedtuple usage in Knight and Pawn
+Attack squares
 https://www.chess.com/blog/AnImbalancedPosition/positional-continuity-in-chess
 https://www.chessprogramming.org/Incremental_Updates
 Maybe just use pseudo legal moves, then perform all of them in engine, etc. and undo ones that put own king in check

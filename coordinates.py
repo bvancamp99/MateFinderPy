@@ -29,6 +29,7 @@ def index_to_square(i, j):
     '''
     return Square(File.A + j, 8 - i)
 
+#
 
 def square_to_index(square):
     '''

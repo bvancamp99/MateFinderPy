@@ -36,6 +36,15 @@ class Board:
         self.move_stack = []
         self.move_it = Peekable(self.iter_moves()) # TODO: remove color param
 
+        self.check_squares = np.array([[set() for _ in range(8)] for _ in range(8)])
+        self.fill_check_squares()
+
+    def fill_check_squares(self):
+        for piece in self.iter_pieces(self.fen_class.active_color):
+            for square in piece.iter_pseudo_legal_end_squares():
+                i, j = coordinates.square_to_index(square)
+                self.check_squares[i,j].add(piece)
+
     def get_piece(self, square):
         return self._arr[coordinates.square_to_index(square)]
 
